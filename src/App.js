@@ -1,25 +1,119 @@
-import logo from './logo.svg';
 import './App.css';
+import { BrowserRouter, Redirect, Route, Switch } from 'react-router-dom';
+import Home from './pages/Home/Home';
+import Navigation from './components/shared/Navigation/Navigation';
+import Authenticate from './pages/Authenticate/Authenticate';
+import Activate from './pages/Activate/Activate';
+import Rooms from './pages/Rooms/Rooms';
+import { useSelector } from 'react-redux';
+import { useLoadingWithRefresh } from './hooks/useLoadingWithRefresh';
+import Loader from './components/shared/Loader/Loader';
+import Room from './pages/Room/Room';
+
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+  const {loading} = useLoadingWithRefresh();
+
+  return loading ? (
+    <Loader message="Espere..." />
+  ) : (
+    <BrowserRouter>
+      <Navigation />
+      <Switch>
+        <GuestRoute path="/" exact>
+          <Home />
+        </GuestRoute>
+        
+        <GuestRoute path="/authenticate">
+          <Authenticate />
+        </GuestRoute>
+
+        <SemiProtectedRoute path='/activate'>
+          <Activate />
+        </SemiProtectedRoute>
+
+        <ProtectedRoute path='/rooms'>
+          <Rooms />
+        </ProtectedRoute>
+        <ProtectedRoute path='/room/:id'>
+          <Room />
+        </ProtectedRoute>
+
+      </Switch>
+    </BrowserRouter>
   );
+}
+
+const GuestRoute = ({children, ...rest}) => {
+  const {isAuth} = useSelector((state) => state.auth);
+
+  return (
+    <Route 
+      {...rest}
+      render={({location}) => {
+        return isAuth ? (
+          <Redirect to={
+            {
+              pathname: '/rooms',
+              state: {from: location}
+            }
+          } />
+        ) : (
+          children
+        );
+      }}
+    ></Route>
+  )
+}
+
+const SemiProtectedRoute = ({children, ...rest}) => {
+  const {user, isAuth} = useSelector((state) => state.auth);
+
+  return (
+    <Route
+      {...rest}
+      render={({location}) => {
+        return !isAuth ? (
+            <Redirect to={{
+              pathname: '/',
+              state: {from: location}
+            }} />
+          ) : isAuth && !user.activated ? (
+            children
+          ) : (
+            <Redirect to={{
+              pathname: '/rooms',
+              state: {from: location}
+            }} />
+          )
+      }}
+    ></Route>
+  )
+}
+
+const ProtectedRoute = ({children, ...rest}) => {
+  const {user, isAuth} = useSelector((state) => state.auth);
+
+  return (
+    <Route
+      {...rest}
+      render={({location}) => {
+        return !isAuth ? (
+            <Redirect to={{
+              pathname: '/',
+              state: {from: location}
+            }} />
+          ) : isAuth && !user.activated ? (
+            <Redirect to={{
+              pathname: '/activate',
+              state: {from: location}
+            }} />
+          ) : (
+            children
+          )
+      }}
+    ></Route>
+  )
 }
 
 export default App;
